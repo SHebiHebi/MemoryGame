@@ -63,6 +63,16 @@ namespace MemoryGame.Properties {
         /// <summary>
         ///   型 System.Drawing.Bitmap のローカライズされたリソースを検索します。
         /// </summary>
+        internal static System.Drawing.Bitmap card_back {
+            get {
+                object obj = ResourceManager.GetObject("card_back", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   型 System.Drawing.Bitmap のローカライズされたリソースを検索します。
+        /// </summary>
         internal static System.Drawing.Bitmap card_club_01 {
             get {
                 object obj = ResourceManager.GetObject("card_club_01", resourceCulture);
@@ -316,16 +326,6 @@ namespace MemoryGame.Properties {
         internal static System.Drawing.Bitmap card_diamond_9 {
             get {
                 object obj = ResourceManager.GetObject("card_diamond_9", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   型 System.Drawing.Bitmap のローカライズされたリソースを検索します。
-        /// </summary>
-        internal static System.Drawing.Bitmap card_front {
-            get {
-                object obj = ResourceManager.GetObject("card_front", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

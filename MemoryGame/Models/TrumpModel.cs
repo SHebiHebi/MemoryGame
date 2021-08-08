@@ -45,11 +45,11 @@ namespace MemoryGame.Models
             set { SetProperty(ref nowImage, value); }
         }
 
-        private bool isFront;
-        public bool IsFront
+        private bool isBack;
+        public bool IsBack
         {
-            get { return isFront; }
-            set { SetProperty(ref isFront, value); }
+            get { return isBack; }
+            set { SetProperty(ref isBack, value); }
         }
 
         private bool isVisible;
@@ -57,6 +57,14 @@ namespace MemoryGame.Models
         {
             get { return isVisible; }
             set { SetProperty(ref isVisible, value); }
+        }
+
+
+        private bool isHitTestVisible;
+        public bool IsHitTestVisible
+        {
+            get { return isHitTestVisible; }
+            set { SetProperty(ref isHitTestVisible, value); }
         }
 
         public DelegateCommand<TrumpModel> ClickTrumpCommand { get; set; }

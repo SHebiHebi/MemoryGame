@@ -1,4 +1,5 @@
-﻿using MemoryGame.Models;
+﻿using MemoryGame.Const;
+using MemoryGame.Models;
 using Prism.Commands;
 using Prism.Mvvm;
 using System;
@@ -21,17 +22,32 @@ namespace MemoryGame.ViewModels
             set { SetProperty(ref trump, value); }
         }
 
-        // 開いた1枚目のトランプ保持用フィールド
-        private TrumpModel openTrump;
+        private string message;
+        // トランププロパティ
+        public string Message
+        {
+            get { return message; }
+            set { SetProperty(ref message, value); }
+        }
 
         public MainViewModel()
         {
+            Initialize();
+        }
+
+        private void Initialize()
+        {
+            // メッセージを設定
+            Message = MessageConst.USER_PROSESSING_MESSAGE;
+
             // トランプを生成
             CreateTrump();
 
             // シャッフル
-            Trump = new ObservableCollection<TrumpModel>( Trump.OrderBy(i => Guid.NewGuid()).ToArray());
+            Trump = new ObservableCollection<TrumpModel>(Trump.OrderBy(i => Guid.NewGuid()).ToArray());
         }
+
+
         private void CreateTrump()
         {
             // トランプを生成
@@ -44,14 +60,15 @@ namespace MemoryGame.ViewModels
                 TrumpModel trumpModel = new TrumpModel()
                 {
                     Number = j.ToString(),
-                    FrontImage = "pack://application:,,,/Resources/card_front.png",
+                    BackImage = "pack://application:,,,/Resources/card_back.png",
                     ClickTrumpCommand = new DelegateCommand<TrumpModel>(ClickTrumpExecute),
-                    IsFront = true,
-                    IsVisible = true
+                    IsBack = true,
+                    IsVisible = true,
+                    IsHitTestVisible = true
                 };
 
                 // 最初の表示状態は裏に設定
-                trumpModel.NowImage = trumpModel.FrontImage;
+                trumpModel.NowImage = trumpModel.BackImage;
 
                 if (i <= 13)
                 {
@@ -74,8 +91,8 @@ namespace MemoryGame.ViewModels
                     trumpModel.Type = "diamond";
                 }
 
-                // 裏の画像を設定
-                trumpModel.BackImage = string.Format("pack://application:,,,/Resources/card_{0}_{1}.png", trumpModel.Type, j);
+                // 表の画像を設定
+                trumpModel.FrontImage = string.Format("pack://application:,,,/Resources/card_{0}_{1}.png", trumpModel.Type, j);
 
                 // トランプに追加
                 Trump.Add(trumpModel);
@@ -95,54 +112,131 @@ namespace MemoryGame.ViewModels
 
         private void ClickTrumpExecute(TrumpModel clickTrump)
         {
-            // クリックしたトランプの表判定
-            if (clickTrump.IsFront)
+            // クリックしたトランプの裏判定
+            if (clickTrump.IsBack)
             {
-                // 裏にする
-                clickTrump.IsFront = false;
+                // 表にする
+                OpenCard(clickTrump);
 
-                // 裏の画像を設定
-                clickTrump.NowImage = clickTrump.BackImage;
+                if (Trump.Where(t => !t.IsBack).Count() == 2)
+                {
+                    Task<bool> t = CheckTrump();
 
-                // すでにオープン済みのトランプがあるか判定
-                if (openTrump == null)
-                {
-                    // なければ、クリックしたトランプをオープンしたトランプとして保持
-                    openTrump = clickTrump;
-                }
-                else
-                {
-                    // オープンしているトランプとクリックしたトランプを比較
-                    CheckTrump(clickTrump);
+                    ComputerProcessing(t);
                 }
             }
         }
 
-        private Task CheckTrump(TrumpModel clickTrump)
+        private void OpenCard(TrumpModel clickTrump)
+        {
+            // 表にする
+            clickTrump.IsBack = false;
+
+            // 表の画像を設定
+            clickTrump.NowImage = clickTrump.FrontImage;
+        }
+
+        private Task<bool> CheckTrump()
         {
             return Task.Run(() =>
             {
+                bool isSuccess = false;
+                SetTrumpDisable();
+
                 // 2枚目のトランプが裏になるまで待機
                 Thread.Sleep(1500);
 
+                var cards = Trump.Where(t => !t.IsBack).ToList();
+
                 // 番号の比較
-                if (openTrump.Number == clickTrump.Number)
+                if (cards[0].Number == cards[1].Number)
                 {
                     // 一致したため非表示にする
-                    openTrump.IsVisible = false;
-                    clickTrump.IsVisible = false;
+                    cards[0].IsVisible = false;
+                    cards[1].IsVisible = false;
+                    cards[0].IsBack = true;
+                    cards[1].IsBack = true;
+
+                    isSuccess = true;
                 }
                 else
                 {
                     // 不一致のため、裏にする
-                    clickTrump.IsFront = true;
-                    openTrump.IsFront = true;
-                    clickTrump.NowImage = clickTrump.FrontImage;
-                    openTrump.NowImage = openTrump.FrontImage;
+                    cards[0].IsBack = true;
+                    cards[1].IsBack = true;
+                    cards[0].NowImage = cards[0].BackImage;
+                    cards[1].NowImage = cards[1].BackImage;
                 }
 
-                openTrump = null;
+                SetTrumpEnable();
+
+                return isSuccess;
             });
+        }
+
+        private Task ComputerProcessing(Task<bool> userProcessing)
+        {
+            return Task.Run(() =>
+            {
+                // ユーザ操作待機
+                userProcessing.Wait();
+
+                // ユーザが失敗したか判定
+                if (!userProcessing.Result)
+                {
+                    bool isSuccess = true;
+
+                    // 失敗するまで繰り返す
+                    while (isSuccess)
+                    {
+                        SetTrumpDisable();
+
+                        Message = MessageConst.CP_PROSESSING_MESSAGE;
+
+                        var getTrump = Trump.OrderBy(elem => Guid.NewGuid()).Where(c => c.IsBack && c.IsVisible);
+                        int i = 0;
+                        foreach (var card in getTrump)
+                        {
+                            if (i == 2)
+                            {
+                                break;
+                            }
+                            Thread.Sleep(1000);
+
+                            card.IsBack = false;
+                            card.NowImage = card.FrontImage;
+                            i++;
+                        }
+
+                        Task<bool> t = CheckTrump();
+                        t.Wait();
+
+                        Message = MessageConst.USER_PROSESSING_MESSAGE;
+
+                        SetTrumpEnable();
+
+                        isSuccess = t.Result;
+                    }
+                }
+            });
+        }
+
+        private void SetTrumpEnable()
+        {
+            foreach (TrumpModel trumpModel in Trump)
+            {
+                // クリックを有効化
+                trumpModel.IsHitTestVisible = true;
+            }
+        }
+
+        private void SetTrumpDisable()
+        {
+            foreach (TrumpModel trumpModel in Trump)
+            {
+                // 処置中はクリックを無効化
+                trumpModel.IsHitTestVisible = false;
+            }
         }
     }
 }
