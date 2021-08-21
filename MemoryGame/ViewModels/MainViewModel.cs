@@ -30,6 +30,17 @@ namespace MemoryGame.ViewModels
             set { SetProperty(ref message, value); }
         }
 
+        private bool isProcessing;
+        // 処理中フラグ
+        public bool IsProcessing
+        {
+            get { return isProcessing; }
+            set { SetProperty(ref isProcessing, value, ChangeProcessing); }
+        }
+
+
+        private ComputerModel computer;
+
         public MainViewModel()
         {
             Initialize();
@@ -37,6 +48,10 @@ namespace MemoryGame.ViewModels
 
         private void Initialize()
         {
+            computer = new ComputerModel();
+            computer.Level = 1;
+            computer.Storage = new ObservableCollection<TrumpModel>();
+
             // メッセージを設定
             Message = MessageConst.USER_PROSESSING_MESSAGE;
 
@@ -47,6 +62,20 @@ namespace MemoryGame.ViewModels
             Trump = new ObservableCollection<TrumpModel>(Trump.OrderBy(i => Guid.NewGuid()).ToArray());
         }
 
+        private void  ChangeProcessing()
+        {
+            if (IsProcessing)
+            {
+                // カードの操作を有効化
+                SetTrumpDisable();
+
+            }
+            else
+            {
+                // カードの操作を有効化
+                SetTrumpEnable();
+            }
+        }
 
         private void CreateTrump()
         {
@@ -118,34 +147,70 @@ namespace MemoryGame.ViewModels
                 // 表にする
                 OpenCard(clickTrump);
 
+                // 表のカード枚数判定
                 if (Trump.Where(t => !t.IsBack).Count() == 2)
                 {
+                    IsProcessing = true;
+                    // 2枚だったら判定を行う
                     Task<bool> t = CheckTrump();
 
+                    // コンピュータの処理
                     ComputerProcessing(t);
                 }
             }
         }
 
-        private void OpenCard(TrumpModel clickTrump)
+        private void OpenCard(TrumpModel trump)
         {
             // 表にする
-            clickTrump.IsBack = false;
+            trump.IsBack = false;
 
             // 表の画像を設定
-            clickTrump.NowImage = clickTrump.FrontImage;
+            trump.NowImage = trump.FrontImage;
+
+            if (computer.Storage.Contains(trump))
+            {
+                computer.Storage.Remove(trump);
+            }
+            // 記憶する
+            computer.Storage.Add(trump);
         }
+
+        private void OpenCard(TrumpModel targetCard1, TrumpModel targetCard2)
+        {
+            Thread.Sleep(1000);
+            OpenCard(targetCard1);
+            Thread.Sleep(1000);
+            OpenCard(targetCard2);
+        }
+
+        private void BackCard(TrumpModel trump)
+        {
+            // 表にする
+            trump.IsBack = true;
+
+            // 表の画像を設定
+            trump.NowImage = trump.BackImage;
+
+            if (computer.Storage.Contains(trump))
+            {
+                computer.Storage.Remove(trump);
+            }
+            // 記憶する
+            computer.Storage.Add(trump);
+        }
+
 
         private Task<bool> CheckTrump()
         {
             return Task.Run(() =>
             {
                 bool isSuccess = false;
-                SetTrumpDisable();
 
-                // 2枚目のトランプが裏になるまで待機
+                // 2枚目のトランプが表になるまで待機
                 Thread.Sleep(1500);
 
+                // 表のカードを抽出
                 var cards = Trump.Where(t => !t.IsBack).ToList();
 
                 // 番号の比較
@@ -154,21 +219,24 @@ namespace MemoryGame.ViewModels
                     // 一致したため非表示にする
                     cards[0].IsVisible = false;
                     cards[1].IsVisible = false;
-                    cards[0].IsBack = true;
-                    cards[1].IsBack = true;
 
+                    // 裏にする
+                    BackCard(cards[0]);
+                    BackCard(cards[1]);
+
+                    // 成功
                     isSuccess = true;
+
+                    // 記憶領域から削除
+                    computer.Storage.Remove(cards[0]);
+                    computer.Storage.Remove(cards[1]);
                 }
                 else
                 {
                     // 不一致のため、裏にする
-                    cards[0].IsBack = true;
-                    cards[1].IsBack = true;
-                    cards[0].NowImage = cards[0].BackImage;
-                    cards[1].NowImage = cards[1].BackImage;
+                    BackCard(cards[0]);
+                    BackCard(cards[1]);
                 }
-
-                SetTrumpEnable();
 
                 return isSuccess;
             });
@@ -184,40 +252,59 @@ namespace MemoryGame.ViewModels
                 // ユーザが失敗したか判定
                 if (!userProcessing.Result)
                 {
+                    Message = MessageConst.CP_PROSESSING_MESSAGE;
+
+                    // 記憶したカードから一致するカードを抽出
+                    for (int i = 0; i < computer.Storage.Count; i++)
+                    {
+                        for (int j = i + 1; j < computer.Storage.Count; j++)
+                        {
+                            if (computer.Storage[i].Number == computer.Storage[j].Number)
+                            {
+                                // 対象のカード
+                                var targetCard1 = computer.Storage[i];
+                                var targetCard2 = computer.Storage[j];
+
+                                OpenCard(targetCard1, targetCard2);
+
+                                Task<bool> t = CheckTrump();
+                                t.Wait();
+
+                                break;
+                            }
+                        }
+                    }
+
                     bool isSuccess = true;
 
                     // 失敗するまで繰り返す
                     while (isSuccess)
                     {
-                        SetTrumpDisable();
+                        var getTrump = Trump.OrderBy(elem => Guid.NewGuid()).Where(c => c.IsBack && c.IsVisible).ToList();
+                        var targetCard1 = getTrump[0];
+                        var targetCard2 = getTrump[1];
 
-                        Message = MessageConst.CP_PROSESSING_MESSAGE;
-
-                        var getTrump = Trump.OrderBy(elem => Guid.NewGuid()).Where(c => c.IsBack && c.IsVisible);
-                        int i = 0;
-                        foreach (var card in getTrump)
+                        // 記憶領域から存在するカードを取得
+                        var targetCards2 = computer.Storage.Where(c => (c.Number == targetCard1.Number) && c.IsBack && c.IsVisible && (c.Type != targetCard1.Type)).ToList();
+                        if (targetCards2.Count() != 0)
                         {
-                            if (i == 2)
-                            {
-                                break;
-                            }
-                            Thread.Sleep(1000);
-
-                            card.IsBack = false;
-                            card.NowImage = card.FrontImage;
-                            i++;
+                            // 存在したら2枚目を設定
+                            targetCard2 = targetCards2[0];
                         }
+
+                        OpenCard(targetCard1, targetCard2);
 
                         Task<bool> t = CheckTrump();
                         t.Wait();
 
-                        Message = MessageConst.USER_PROSESSING_MESSAGE;
-
-                        SetTrumpEnable();
-
                         isSuccess = t.Result;
                     }
+
+                    Message = MessageConst.USER_PROSESSING_MESSAGE;
                 }
+
+                IsProcessing = false;
+
             });
         }
 
