@@ -12,6 +12,12 @@
             <TextBlock Text="{Binding Message}"
                        HorizontalAlignment="Center"
                        FontSize="16"/>
+
+            <TextBlock Text="{Binding Computer.Point, StringFormat=コンピュータのポイント:{0}}"
+                       HorizontalAlignment="Right"
+                       Margin="0 0 16 0"
+                       FontSize="16"/>
+
             <ItemsControl ItemsSource="{Binding Trump}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -34,6 +40,11 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <TextBlock Text="{Binding User.Point, StringFormat=あたなのポイント:{0}}"
+                       HorizontalAlignment="Right"
+                       Margin="0 0 16 0"
+                       FontSize="16"/>
+
         </StackPanel>
     </Grid>
 </UserControl>

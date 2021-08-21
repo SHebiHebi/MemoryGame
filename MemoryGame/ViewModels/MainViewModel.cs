@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace MemoryGame.ViewModels
 {
@@ -35,11 +36,25 @@ namespace MemoryGame.ViewModels
         public bool IsProcessing
         {
             get { return isProcessing; }
-            set { SetProperty(ref isProcessing, value, ChangeProcessing); }
+            set { SetProperty(ref isProcessing, value, ChangeIsProcessingProperty); }
         }
 
+        
+        private UserModel user;
+        // 処理中フラグ
+        public UserModel User
+        {
+            get { return user; }
+            set { SetProperty(ref user, value); }
+        }
 
         private ComputerModel computer;
+        // 処理中フラグ
+        public ComputerModel Computer
+        {
+            get { return computer; }
+            set { SetProperty(ref computer, value); }
+        }
 
         public MainViewModel()
         {
@@ -48,9 +63,11 @@ namespace MemoryGame.ViewModels
 
         private void Initialize()
         {
-            computer = new ComputerModel();
-            computer.Level = 1;
-            computer.Storage = new ObservableCollection<TrumpModel>();
+            User = new UserModel();
+
+            Computer = new ComputerModel();
+            Computer.Level = 1;
+            Computer.Storage = new ObservableCollection<TrumpModel>();
 
             // メッセージを設定
             Message = MessageConst.USER_PROSESSING_MESSAGE;
@@ -62,18 +79,28 @@ namespace MemoryGame.ViewModels
             Trump = new ObservableCollection<TrumpModel>(Trump.OrderBy(i => Guid.NewGuid()).ToArray());
         }
 
-        private void  ChangeProcessing()
+        private void ChangeIsProcessingProperty()
         {
             if (IsProcessing)
             {
                 // カードの操作を有効化
                 SetTrumpDisable();
-
             }
             else
             {
                 // カードの操作を有効化
                 SetTrumpEnable();
+
+                if ((User.Point * 2) > (52 / 2))
+                {
+                    MessageBox.Show("あなたの勝ちです。");
+                    Initialize();
+                }
+                else if ((Computer.Point * 2) > (52 / 2))
+                {
+                    MessageBox.Show("あなたの負けです。");
+                    Initialize();
+                }
             }
         }
 
@@ -168,12 +195,12 @@ namespace MemoryGame.ViewModels
             // 表の画像を設定
             trump.NowImage = trump.FrontImage;
 
-            if (computer.Storage.Contains(trump))
+            if (Computer.Storage.Contains(trump))
             {
-                computer.Storage.Remove(trump);
+                Computer.Storage.Remove(trump);
             }
             // 記憶する
-            computer.Storage.Add(trump);
+            Computer.Storage.Add(trump);
         }
 
         private void OpenCard(TrumpModel targetCard1, TrumpModel targetCard2)
@@ -192,12 +219,12 @@ namespace MemoryGame.ViewModels
             // 表の画像を設定
             trump.NowImage = trump.BackImage;
 
-            if (computer.Storage.Contains(trump))
+            if (Computer.Storage.Contains(trump))
             {
-                computer.Storage.Remove(trump);
+                Computer.Storage.Remove(trump);
             }
             // 記憶する
-            computer.Storage.Add(trump);
+            Computer.Storage.Add(trump);
         }
 
 
@@ -228,8 +255,8 @@ namespace MemoryGame.ViewModels
                     isSuccess = true;
 
                     // 記憶領域から削除
-                    computer.Storage.Remove(cards[0]);
-                    computer.Storage.Remove(cards[1]);
+                    Computer.Storage.Remove(cards[0]);
+                    Computer.Storage.Remove(cards[1]);
                 }
                 else
                 {
@@ -255,20 +282,23 @@ namespace MemoryGame.ViewModels
                     Message = MessageConst.CP_PROSESSING_MESSAGE;
 
                     // 記憶したカードから一致するカードを抽出
-                    for (int i = 0; i < computer.Storage.Count; i++)
+                    for (int i = 0; i < Computer.Storage.Count; i++)
                     {
-                        for (int j = i + 1; j < computer.Storage.Count; j++)
+                        for (int j = i + 1; j < Computer.Storage.Count; j++)
                         {
-                            if (computer.Storage[i].Number == computer.Storage[j].Number)
+                            if (Computer.Storage[i].Number == Computer.Storage[j].Number)
                             {
                                 // 対象のカード
-                                var targetCard1 = computer.Storage[i];
-                                var targetCard2 = computer.Storage[j];
+                                var targetCard1 = Computer.Storage[i];
+                                var targetCard2 = Computer.Storage[j];
 
                                 OpenCard(targetCard1, targetCard2);
 
                                 Task<bool> t = CheckTrump();
                                 t.Wait();
+
+                                // ポイント加算
+                                Computer.Point++;
 
                                 break;
                             }
@@ -285,7 +315,7 @@ namespace MemoryGame.ViewModels
                         var targetCard2 = getTrump[1];
 
                         // 記憶領域から存在するカードを取得
-                        var targetCards2 = computer.Storage.Where(c => (c.Number == targetCard1.Number) && c.IsBack && c.IsVisible && (c.Type != targetCard1.Type)).ToList();
+                        var targetCards2 = Computer.Storage.Where(c => (c.Number == targetCard1.Number) && c.IsBack && c.IsVisible && (c.Type != targetCard1.Type)).ToList();
                         if (targetCards2.Count() != 0)
                         {
                             // 存在したら2枚目を設定
@@ -297,10 +327,20 @@ namespace MemoryGame.ViewModels
                         Task<bool> t = CheckTrump();
                         t.Wait();
 
+                        if (t.Result)
+                        {
+                            // 成功したのでポイント追加
+                            Computer.Point++;
+                        }
+
                         isSuccess = t.Result;
                     }
 
                     Message = MessageConst.USER_PROSESSING_MESSAGE;
+                }
+                else
+                {
+                    User.Point++;
                 }
 
                 IsProcessing = false;

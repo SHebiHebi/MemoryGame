@@ -59,6 +59,7 @@
     </ApplicationDefinition>
     <Compile Include="Const\MessageConst.cs" />
     <Compile Include="Converters\BooleanToVisibilityConverter.cs" />
+    <Compile Include="Models\UserModel.cs" />
     <Compile Include="Models\ComputerModel.cs" />
     <Compile Include="Models\TrumpModel.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
